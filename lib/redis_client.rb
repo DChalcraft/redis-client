@@ -206,6 +206,9 @@ class RedisClient
     else
       result
     end
+  rescue BaseConnectionError
+    @cannot_connect_at ||= Time.now
+    raise
   end
 
   def call_v(command)
@@ -608,6 +611,11 @@ class RedisClient
         @raw_connection
       end
     elsif retryable
+      if attempt_reconnect?
+        @cannot_connect_at = nil
+      else
+        raise CannotConnectError, "retry_server_delay not reached"
+      end
       tries = 0
       connection = nil
       begin
@@ -645,6 +653,17 @@ class RedisClient
   def raw_connection
     @raw_connection = @raw_connection&.revalidate
     @raw_connection ||= connect
+  end
+
+  def attempt_reconnect?
+    return true unless retry_server_delay
+    return true unless @cannot_connect_at
+
+    time_to_next_reconnect = @cannot_connect_at + retry_server_delay.seconds - Time.now
+    return true if time_to_next_reconnect.negative?
+
+    puts { "retry_server_delay not reached for HOST: #{location} - #{time_to_next_reconnect} seconds remaining" }
+    false
   end
 
   def connect
