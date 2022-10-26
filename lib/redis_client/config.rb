@@ -14,7 +14,7 @@ class RedisClient
     module Common
       attr_reader :db, :password, :id, :ssl, :ssl_params, :command_builder, :inherit_socket,
         :connect_timeout, :read_timeout, :write_timeout, :driver, :connection_prelude, :protocol,
-        :middlewares_stack, :custom, :retry_server_delay
+        :middlewares_stack, :custom
 
       alias_method :ssl?, :ssl
 
@@ -37,7 +37,7 @@ class RedisClient
         inherit_socket: false,
         reconnect_attempts: false,
         middlewares: false,
-        retry_server_delay: nil
+        retry_connection_delay: false
       )
         @username = username
         @password = password
@@ -75,7 +75,7 @@ class RedisClient
           end
         end
         @middlewares_stack = middlewares_stack
-        @retry_server_delay = retry_server_delay
+        @retry_connection_delay = retry_connection_delay
       end
 
       def username
@@ -104,6 +104,18 @@ class RedisClient
             return true
           end
         end
+        false
+      end
+
+      def retry_connection?
+        return true if @reconnect_attempts
+        return true unless @retry_connection_delay
+        return true unless @connection_failed_at
+
+        time_to_next_reconnect = @connection_failed_at + @retry_connection_delay.seconds - Time.now
+        return true if time_to_next_reconnect.negative?
+
+        puts { "retry_server_delay not reached for HOST: #{location} - #{time_to_next_reconnect} seconds remaining" }
         false
       end
 

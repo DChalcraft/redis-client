@@ -206,9 +206,6 @@ class RedisClient
     else
       result
     end
-  rescue BaseConnectionError
-    @cannot_connect_at ||= Time.now
-    raise
   end
 
   def call_v(command)
@@ -611,10 +608,10 @@ class RedisClient
         @raw_connection
       end
     elsif retryable
-      if attempt_reconnect?
-        @cannot_connect_at = nil
+      if config.retry_connection?
+        @connection_failed_at = false
       else
-        raise CannotConnectError, "retry_server_delay not reached"
+        raise ConnectionError, "retry_connection_delay not reached"
       end
       tries = 0
       connection = nil
@@ -655,17 +652,6 @@ class RedisClient
     @raw_connection ||= connect
   end
 
-  def attempt_reconnect?
-    return true unless retry_server_delay
-    return true unless @cannot_connect_at
-
-    time_to_next_reconnect = @cannot_connect_at + retry_server_delay.seconds - Time.now
-    return true if time_to_next_reconnect.negative?
-
-    puts { "retry_server_delay not reached for HOST: #{location} - #{time_to_next_reconnect} seconds remaining" }
-    false
-  end
-
   def connect
     @pid = Process.pid
 
@@ -703,6 +689,7 @@ class RedisClient
   rescue FailoverError
     raise
   rescue ConnectionError => error
+    @connection_failed_at ||= Time.now
     raise CannotConnectError, error.message, error.backtrace
   rescue CommandError => error
     if error.message.include?("ERR unknown command `HELLO`")
