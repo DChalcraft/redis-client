@@ -37,7 +37,7 @@ class RedisClient
         inherit_socket: false,
         reconnect_attempts: false,
         middlewares: false,
-        retry_connection_delay: false
+        retry_connecting_delay: false
       )
         @username = username
         @password = password
@@ -75,7 +75,7 @@ class RedisClient
           end
         end
         @middlewares_stack = middlewares_stack
-        @retry_connection_delay = retry_connection_delay
+        @retry_connecting_delay = retry_connecting_delay
       end
 
       def username
@@ -107,15 +107,13 @@ class RedisClient
         false
       end
 
-      def retry_connection?
-        return true if @reconnect_attempts
-        return true unless @retry_connection_delay
-        return true unless @connection_failed_at
+      def attempt_reconnecting?
+        return true unless @retry_connecting_delay
+        return true unless @connection_error_at
 
-        time_to_next_reconnect = @connection_failed_at + @retry_connection_delay.seconds - Time.now
-        return true if time_to_next_reconnect.negative?
+        time_to_retry_connecting = @connection_error_at + @retry_connecting_delay.seconds - Time.now
+        return true if time_to_retry_connecting.negative?
 
-        puts { "retry_server_delay not reached for HOST: #{location} - #{time_to_next_reconnect} seconds remaining" }
         false
       end
 

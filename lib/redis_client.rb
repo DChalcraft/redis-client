@@ -608,10 +608,10 @@ class RedisClient
         @raw_connection
       end
     elsif retryable
-      if config.retry_connection?
-        @connection_failed_at = false
+      if config.attempt_reconnecting?
+        @connection_error_at = false
       else
-        raise ConnectionError, "retry_connection_delay not reached"
+        raise CannotConnectError, "retry_connecting_delay not reached"
       end
       tries = 0
       connection = nil
@@ -689,7 +689,7 @@ class RedisClient
   rescue FailoverError
     raise
   rescue ConnectionError => error
-    @connection_failed_at ||= Time.now
+    @connection_error_at ||= Time.now
     raise CannotConnectError, error.message, error.backtrace
   rescue CommandError => error
     if error.message.include?("ERR unknown command `HELLO`")
