@@ -601,6 +601,12 @@ class RedisClient
   def ensure_connected(retryable: true)
     close if !config.inherit_socket && @pid != Process.pid
 
+    if config.attempt_reconnecting?
+      @connection_error_at = false
+    else
+      raise CannotConnectError, "retry_connecting_delay not reached"
+    end
+
     if @disable_reconnection
       if block_given?
         yield @raw_connection
@@ -608,11 +614,6 @@ class RedisClient
         @raw_connection
       end
     elsif retryable
-      if config.attempt_reconnecting?
-        @connection_error_at = false
-      else
-        raise CannotConnectError, "retry_connecting_delay not reached"
-      end
       tries = 0
       connection = nil
       begin
