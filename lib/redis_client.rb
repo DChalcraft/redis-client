@@ -601,10 +601,10 @@ class RedisClient
   def ensure_connected(retryable: true)
     close if !config.inherit_socket && @pid != Process.pid
 
-    if config.attempt_reconnecting?
-      @connection_error_at = false
-    else
+    if config.delay_connecting?(@connection_error_at)
       raise CannotConnectError, "retry_connecting_delay not reached"
+    else
+      @connection_error_at = false
     end
 
     if @disable_reconnection

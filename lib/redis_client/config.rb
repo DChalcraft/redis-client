@@ -107,12 +107,12 @@ class RedisClient
         false
       end
 
-      def attempt_reconnecting?
-        return true unless @retry_connecting_delay
-        return true unless @connection_error_at
+      def delay_connecting?(connection_error_at)
+        return false unless connection_error_at
+        return false unless @retry_connecting_delay
 
-        time_to_retry_connecting = @connection_error_at + @retry_connecting_delay.seconds - Time.now
-        return true if time_to_retry_connecting.negative?
+        time_to_retry_connecting = connection_error_at + @retry_connecting_delay.seconds - Time.now
+        return true if time_to_retry_connecting.positive?
 
         false
       end
